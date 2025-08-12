@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Core Box Processing System - Automated Cleaning Line</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-gradient: linear-gradient(135deg, #55425d 0%, #311b49 100%);
+            --secondary-gradient: linear-gradient(135deg, #5b1d63 0%, #ff0022 100%);
+            --success-gradient: linear-gradient(135deg, #00b09b, #96c93d);
+            --warning-gradient: linear-gradient(135deg, #fa8231, #ff6348);
+            --info-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --dark-gradient: linear-gradient(135deg, #30cfd0 0%, #330867 100%);
+            --danger-gradient: linear-gradient(135deg, #eb3b5a, #fc5c65);
+            
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --card-radius: 20px;
+            --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        body {
+            font-family: var(--font);
+            background: var(--primary-gradient);
+            min-height: 100vh;
+            color: #2d3748;
+            overflow-x: hidden;
+            perspective: 1000px;
+        }
+
+        body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: radial-gradient(circle at 20% 80%, rgba(255, 119, 158, 0.3) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 119, 158, 0.3) 0%, transparent 50%), radial-gradient(circle at 40% 40%, rgba(166, 119, 255, 0.2) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 1;
+}
+
+        .container {
+            max-width: 1800px;
+            margin: 0 auto;
+            padding: 1rem;
+            position: relative;
+            z-index: 2;
+        }
+
+        .header {
+            border: none;
+            border-radius: var(--card-radius);
+            padding: 2rem;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .status-panel {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .status-item {
+            padding: 0.75rem 1.5rem;
+            background: var(--card-bg);
+            border-radius: 25px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 15px rgba(49, 27, 73, 0.1);
+            font-weight: 500;
+            color: #4a5568;
+        }
+
+        .status-led {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--success-gradient);
+            box-shadow: 0 0 15px rgba(0, 176, 155, 0.5);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(0.9); }
+        }
+
+        .control-bar {
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .control-buttons {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            background: var(--secondary-gradient);
+            border: none;
+            color: #ffffff;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 15px rgba(240, 147, 251, 0.3);
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(240, 147, 251, 0.4);
+        }
+
+        .btn.emergency {
+            background: var(--danger-gradient);
+            box-shadow: 0 4px 15px rgba(235, 59, 90, 0.3);
+        }
+
+        .btn.emergency:hover {
+            box-shadow: 0 8px 25px rgba(235, 59, 90, 0.4);
+        }
+
+        .main-viewport {
+            background: var(--card-bg);
+            border-radius: var(--card-radius);
+            padding: 2rem;
+            min-height: 600px;
+            position: relative;
+            overflow: hidden;
+            transform-style: preserve-3d;
+            box-shadow: 0 30px 60px rgba(49, 27, 73, 0.15);
+        }
+
+        .conveyor-system {
+            width: 100%;
+            height: 450px;
+            position: relative;
+            transform: rotateX(25deg) translateZ(0);
+            transform-style: preserve-3d;
+        }
+
+        .conveyor-belt {
+            position: absolute;
+            bottom: -30px;
+            left: -10%;
+            right: -10%;
+            height: 80px;
+            background: linear-gradient(90deg, 
+                #2a2a3a 0%, #3a3a4a 25%, #2a2a3a 50%, #3a3a4a 75%, #2a2a3a 100%);
+            border-top: 3px solid #444;
+            border-bottom: 3px solid #222;
+            animation: conveyorMove 20s linear infinite;
+            box-shadow: 
+                0 -10px 30px rgba(0, 0, 0, 0.5),
+                0 10px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        @keyframes conveyorMove {
+            0% { background-position: 0 0; }
+            100% { background-position: 200px 0; }
+        }
+
+        .processing-stations {
+            position: absolute;
+            top: 50px;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-around;
+            z-index: 10;
+        }
+
+        .station {
+            width: 200px;
+            height: 250px;
+            background: var(--card-bg);
+            border: 2px solid transparent;
+            background-clip: padding-box;
+            position: relative;
+            border-radius: 15px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transform: translateZ(50px);
+            transition: all 0.3s ease;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(49, 27, 73, 0.1);
+        }
+
+        .station::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--info-gradient);
+            border-radius: 15px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: -1;
+        }
+
+        .station.active {
+            border: 2px solid transparent;
+            background: linear-gradient(var(--card-bg), var(--card-bg)) padding-box,
+                       var(--secondary-gradient) border-box;
+            box-shadow: 0 15px 40px rgba(240, 147, 251, 0.3);
+        }
+
+        .station.active::before {
+            opacity: 0.1;
+        }
+
+        @keyframes rotateGlow {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .station-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            filter: drop-shadow(0 4px 6px rgba(49, 27, 73, 0.2));
+        }
+
+        .station-name {
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            text-align: center;
+        }
+
+        .station-status {
+            margin-top: 0.5rem;
+            padding: 0.25rem 0.75rem;
+            background: rgba(49, 27, 73, 0.05);
+            border-radius: 15px;
+            font-size: 0.75rem;
+            color: #718096;
+        }
+
+        .core-box {
+            position: absolute;
+            width: 180px;
+            height: 120px;
+            background: linear-gradient(135deg, #3a3a4a, #2a2a3a);
+            border: 2px solid #555;
+            border-radius: 10px;
+            z-index: 999999;
+            padding: 10px;
+            bottom: 35px;
+            transition: all 0.5s ease;
+            transform-style: preserve-3d;
+            box-shadow: 
+                0 20px 40px rgba(0, 0, 0, 0.6),
+                inset 0 0 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .core-box::before {
+            content: attr(data-id);
+            position: absolute;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 165, 0, 0.2);
+            padding: 0.25rem 0.75rem;
+            border-radius: 10px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            border: 1px solid rgba(255, 165, 0, 0.5);
+        }
+
+        .core-rows {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            height: 100%;
+        }
+
+        .core-row {
+            flex: 1;
+            background: linear-gradient(90deg, #8B7355, #A0826D, #8B7355, #6B5D4F);
+            border-radius: 3px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .core-row::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: repeating-linear-gradient(90deg,
+                transparent 0px,
+                transparent 8px,
+                rgba(0, 0, 0, 0.1) 8px,
+                rgba(0, 0, 0, 0.1) 10px
+            );
+        }
+
+        .depth-marker {
+            position: absolute;
+            left: 5px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 0.6rem;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 1px 3px;
+            border-radius: 2px;
+            color: #000;
+            font-weight: bold;
+        }
+
+        .info-panel {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .info-card {
+            background: var(--card-bg);
+            border-radius: var(--card-radius);
+            padding: 1.5rem;
+            box-shadow: 0 10px 30px rgba(49, 27, 73, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .info-title {
+            background: var(--secondary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .info-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #2d3748;
+        }
+
+        .info-unit {
+            font-size: 0.9rem;
+            color: #718096;
+            margin-left: 0.5rem;
+        }
+
+        .progress-bar {
+            margin-top: 1rem;
+            height: 8px;
+            background: rgba(49, 27, 73, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #b776c9;
+            border-radius: 4px;
+            transition: width 0.5s ease;
+            box-shadow: 0 0 20px rgba(79, 172, 254, 0.3);
+        }
+
+        .queue-display {
+            background: var(--card-bg);
+            border-radius: var(--card-radius);
+            padding: 1.5rem;
+            margin-top: 2rem;
+            box-shadow: 0 10px 30px rgba(49, 27, 73, 0.1);
+        }
+
+        .queue-title {
+            background: var(--secondary-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        .queue-list {
+            display: flex;
+            gap: 1rem;
+            overflow-x: auto;
+            padding: 1rem 0;
+        }
+
+        .queue-item {
+            min-width: 120px;
+            padding: 0.75rem;
+            background: #e2e2e2;
+            border-radius: 12px;
+            text-align: center;
+            transition: all 0.3s ease;
+            border: 1px solid rgb(42 0 67);
+        }
+
+        .queue-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(240, 147, 251, 0.2);
+            background: linear-gradient(135deg, rgba(240, 147, 251, 0.2), rgba(245, 87, 108, 0.2));
+        }
+
+        .hole-id {
+            font-weight: bold;
+            background: var(--success-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.25rem;
+        }
+
+        .depth-range {
+            font-size: 0.85rem;
+            color: #222222b3;
+        }
+
+        @media (max-width: 1200px) {
+            .processing-stations {
+                flex-wrap: wrap;
+                gap: 1rem;
+            }
+            
+            .station {
+                width: 150px;
+                height: 200px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .title {
+                font-size: 1.5rem;
+            }
+            
+            .header {
+                flex-direction: column;
+                gap: 1rem;
+            }
+            
+            .control-buttons {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>  
+    <div class="container">
+        <div class="header">
+            <h1 class="title">Core Box Processing Line</h1>
+            <div class="status-panel">
+                <div class="status-item">
+                    <div class="status-led"></div>
+                    <span>System Active</span>
+                </div>
+                <div class="status-item">
+                    <span>Speed: <strong>2.5</strong> boxes/min</span>
+                </div>
+                <div class="status-item">
+                    <span>Processed: <strong id="processedCount">0</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-bar">
+            <div class="control-buttons">
+                <button class="btn" onclick="startLine()">▶ Start Line</button>
+                <button class="btn" onclick="pauseLine()">⏸ Pause</button>
+                <button class="btn" onclick="resetLine()">↺ Reset</button>
+                <button class="btn emergency" onclick="emergencyStop()">⚠ Emergency Stop</button>
+            </div>
+            <div class="status-item">
+                <span>Current Station: <strong id="currentStation">Intake</strong></span>
+            </div>
+        </div>
+
+        <div class="main-viewport">
+            <div class="conveyor-system">
+                <div class="processing-stations">
+                    <div class="station" id="station1" data-name="Intake">
+                        <div class="station-icon">📥</div>
+                        <div class="station-name">Intake & Layout</div>
+                        <div class="station-status">Ready</div>
+                    </div>
+                    <div class="station" id="station2" data-name="Labeling">
+                        <div class="station-icon">🏷️</div>
+                        <div class="station-name">Labeling</div>
+                        <div class="station-status">Ready</div>
+                    </div>
+                    <div class="station" id="station3" data-name="Mechanical">
+                        <div class="station-icon">⚙️</div>
+                        <div class="station-name">Mechanical Clean</div>
+                        <div class="station-status">Ready</div>
+                    </div>
+                    <div class="station" id="station4" data-name="Solvent">
+                        <div class="station-icon">🧪</div>
+                        <div class="station-name">Solvent Wash</div>
+                        <div class="station-status">Ready</div>
+                    </div>
+                    <div class="station" id="station5" data-name="Drying">
+                        <div class="station-icon">🔥</div>
+                        <div class="station-name">Drying Oven</div>
+                        <div class="station-status">Ready</div>
+                    </div>
+                    <div class="station" id="station6" data-name="Storage">
+                        <div class="station-icon">📦</div>
+                        <div class="station-name">Storage</div>
+                        <div class="station-status">Ready</div>
+                    </div>
+                </div>
+                <div class="conveyor-belt"></div>
+            </div>
+        </div>
+
+        <div class="info-panel">
+            <div class="info-card">
+                <div class="info-title">⚙️ Grinding Wheel</div>
+                <div class="info-value">1250<span class="info-unit">RPM</span></div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 75%;"></div>
+                </div>
+            </div>
+            <div class="info-card">
+                <div class="info-title">🧪 Solvent Temperature</div>
+                <div class="info-value">77<span class="info-unit">°F</span></div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 50%;"></div>
+                </div>
+            </div>
+            <div class="info-card">
+                <div class="info-title">🔥 Oven Temperature</div>
+                <div class="info-value">230<span class="info-unit">°F</span></div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 100%;"></div>
+                </div>
+            </div>
+            <div class="info-card">
+                <div class="info-title">💧 Water Flow</div>
+                <div class="info-value">2.5<span class="info-unit">L/min</span></div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 63%;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="queue-display">
+            <div class="queue-title">📋 Core Box Queue</div>
+            <div class="queue-list" id="queueList">
+                <div class="queue-item">
+                    <div class="hole-id">DH-001</div>
+                    <div class="depth-range">0-10m</div>
+                </div>
+                <div class="queue-item">
+                    <div class="hole-id">DH-001</div>
+                    <div class="depth-range">10-20m</div>
+                </div>
+                <div class="queue-item">
+                    <div class="hole-id">DH-001</div>
+                    <div class="depth-range">20-30m</div>
+                </div>
+                <div class="queue-item">
+                    <div class="hole-id">DH-002</div>
+                    <div class="depth-range">0-10m</div>
+                </div>
+                <div class="queue-item">
+                    <div class="hole-id">DH-002</div>
+                    <div class="depth-range">10-20m</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let lineRunning = false;
+        let currentBoxPosition = -200;
+        let activeStation = 1;
+        let processedBoxes = 0;
+        let animationFrame;
+        let currentBox = null;
+        let boxQueue = [];
+        
+        // Generate initial box queue
+        function generateBoxQueue() {
+            const holes = ['DH-001', 'DH-002', 'DH-003'];
+            const queue = [];
+            
+            for (let hole of holes) {
+                for (let depth = 0; depth < 50; depth += 10) {
+                    queue.push({
+                        id: `${hole}-${depth}`,
+                        hole: hole,
+                        depthFrom: depth,
+                        depthTo: depth + 10
+                    });
+                }
+            }
+            return queue;
+        }
+        
+        boxQueue = generateBoxQueue();
+        
+        function createCoreBox(data) {
+            const box = document.createElement('div');
+            box.className = 'core-box';
+            box.setAttribute('data-id', data.id);
+            box.style.left = '-200px';
+            
+            // Create core rows (4 rows representing core samples)
+            const rowsContainer = document.createElement('div');
+            rowsContainer.className = 'core-rows';
+            
+            for (let i = 0; i < 4; i++) {
+                const row = document.createElement('div');
+                row.className = 'core-row';
+                
+                // Add depth marker to first row
+                if (i === 0) {
+                    const marker = document.createElement('div');
+                    marker.className = 'depth-marker';
+                    marker.textContent = `${data.depthFrom}m`;
+                    row.appendChild(marker);
+                }
+                // Add depth marker to last row
+                if (i === 3) {
+                    const marker = document.createElement('div');
+                    marker.className = 'depth-marker';
+                    marker.style.left = 'auto';
+                    marker.style.right = '5px';
+                    marker.textContent = `${data.depthTo}m`;
+                    row.appendChild(marker);
+                }
+                
+                rowsContainer.appendChild(row);
+            }
+            
+            box.appendChild(rowsContainer);
+            return box;
+        }
+        
+        function startLine() {
+            if (!lineRunning && boxQueue.length > 0) {
+                lineRunning = true;
+                
+                // Create first box if not exists
+                if (!currentBox) {
+                    const boxData = boxQueue.shift();
+                    currentBox = createCoreBox(boxData);
+                    document.querySelector('.conveyor-system').appendChild(currentBox);
+                    updateQueueDisplay();
+                }
+                
+                moveBox();
+            }
+        }
+        
+        function pauseLine() {
+            lineRunning = false;
+            if (animationFrame) {
+                cancelAnimationFrame(animationFrame);
+            }
+        }
+        
+        function resetLine() {
+            pauseLine();
+            currentBoxPosition = -200;
+            activeStation = 1;
+            processedBoxes = 0;
+            document.getElementById('processedCount').textContent = processedBoxes;
+            
+            // Remove current box
+            if (currentBox) {
+                currentBox.remove();
+                currentBox = null;
+            }
+            
+            // Reset stations
+            document.querySelectorAll('.station').forEach(station => {
+                station.classList.remove('active');
+                station.querySelector('.station-status').textContent = 'Ready';
+            });
+            
+            // Regenerate queue
+            boxQueue = generateBoxQueue();
+            updateQueueDisplay();
+        }
+        
+        function emergencyStop() {
+            pauseLine();
+            alert('⚠️ Emergency Stop Activated!\nAll processes halted immediately.');
+        }
+        
+        function moveBox() {
+            if (!lineRunning || !currentBox) return;
+            
+            // Calculate station positions
+            const stations = document.querySelectorAll('.station');
+            const stationWidth = 200;
+            const conveyorWidth = document.querySelector('.conveyor-system').offsetWidth;
+            const stationSpacing = conveyorWidth / stations.length;
+            
+            // Move box
+            currentBoxPosition += 2;
+            currentBox.style.left = currentBoxPosition + 'px';
+            
+            // Check which station the box is at
+            const currentStationIndex = Math.floor(currentBoxPosition / stationSpacing);
+            
+            if (currentStationIndex !== activeStation - 1 && currentStationIndex >= 0 && currentStationIndex < stations.length) {
+                // Deactivate previous station
+                if (activeStation > 0 && activeStation <= stations.length) {
+                    stations[activeStation - 1].classList.remove('active');
+                    stations[activeStation - 1].querySelector('.station-status').textContent = 'Complete';
+                }
+                
+                // Activate new station
+                activeStation = currentStationIndex + 1;
+                stations[currentStationIndex].classList.add('active');
+                stations[currentStationIndex].querySelector('.station-status').textContent = 'Processing';
+                
+                // Update current station display
+                document.getElementById('currentStation').textContent = stations[currentStationIndex].getAttribute('data-name');
+                
+                // Simulate processing delay at each station
+                if (activeStation > 1 && activeStation < stations.length) {
+                    pauseLine();
+                    setTimeout(() => {
+                        if (activeStation < stations.length) {
+                            startLine();
+                        }
+                    }, 2000);
+                    return;
+                }
+            }
+            
+            // Check if box reached end
+            if (currentBoxPosition > conveyorWidth + 200) {
+                // Process complete
+                processedBoxes++;
+                document.getElementById('processedCount').textContent = processedBoxes;
+                
+                // Remove completed box
+                currentBox.remove();
+                currentBox = null;
+                
+                // Reset stations
+                document.querySelectorAll('.station').forEach(station => {
+                    station.classList.remove('active');
+                    station.querySelector('.station-status').textContent = 'Ready';
+                });
+                
+                // Create next box if queue not empty
+                if (boxQueue.length > 0) {
+                    const boxData = boxQueue.shift();
+                    currentBox = createCoreBox(boxData);
+                    document.querySelector('.conveyor-system').appendChild(currentBox);
+                    currentBoxPosition = -200;
+                    activeStation = 1;
+                    updateQueueDisplay();
+                    
+                    // Continue processing
+                    animationFrame = requestAnimationFrame(moveBox);
+                } else {
+                    // No more boxes
+                    lineRunning = false;
+                    alert('✅ All core boxes processed successfully!');
+                }
+            } else {
+                animationFrame = requestAnimationFrame(moveBox);
+            }
+        }
+        
+        function updateQueueDisplay() {
+            const queueList = document.getElementById('queueList');
+            queueList.innerHTML = '';
+            
+            // Show next 5 boxes in queue
+            const displayQueue = boxQueue.slice(0, 5);
+            displayQueue.forEach(box => {
+                const item = document.createElement('div');
+                item.className = 'queue-item';
+                item.innerHTML = `
+                    <div class="hole-id">${box.hole}</div>
+                    <div class="depth-range">${box.depthFrom}-${box.depthTo}m</div>
+                `;
+                queueList.appendChild(item);
+            });
+            
+            // Add "more" indicator if queue is longer
+            if (boxQueue.length > 5) {
+                const item = document.createElement('div');
+                item.className = 'queue-item';
+                item.innerHTML = `
+                    <div class="hole-id">...</div>
+                    <div class="depth-range">+${boxQueue.length - 5} more</div>
+                `;
+                queueList.appendChild(item);
+            }
+        }
+        
+        // Update metrics periodically
+        setInterval(() => {
+            if (lineRunning) {
+                // Simulate random metric fluctuations
+                const wheelSpeed = 1200 + Math.floor(Math.random() * 100);
+                const ovenTemp = 108 + Math.floor(Math.random() * 4);
+                const waterFlow = (2.3 + Math.random() * 0.4).toFixed(1);
+                
+                document.querySelector('.info-card:nth-child(1) .info-value').innerHTML = 
+                    `${wheelSpeed}<span class="info-unit">RPM</span>`;
+                document.querySelector('.info-card:nth-child(3) .info-value').innerHTML = 
+                    `${ovenTemp}<span class="info-unit">°C</span>`;
+                document.querySelector('.info-card:nth-child(4) .info-value').innerHTML = 
+                    `${waterFlow}<span class="info-unit">L/min</span>`;
+            }
+        }, 3000);
+        
+        // Initialize queue display
+        updateQueueDisplay();
+    </script>
+</body>
+</html>
